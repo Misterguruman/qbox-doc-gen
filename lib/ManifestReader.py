@@ -15,6 +15,19 @@ class Manifest:
         self.shared_scripts = self._get_shared_scripts()
         self.client_scripts = self._get_client_scripts()
         self.server_scripts = self._get_server_scripts()
+        self.locales = self._get_locales()
+        self.english_locale = True if 'en' in self.locales or 'en-us' in self.locales else False
+        
+        if self.english_locale:
+            if 'en' in self.locales:
+                if os.path.exists(os.path.join(self.resource_path, 'locales', 'en.lua')):
+                    self.english_locale_path = os.path.join(self.resource_path, 'locales', 'en.lua')
+            elif 'en-us' in self.locales:
+                if os.path.exists(os.path.join(self.resource_path, 'locales', 'en-us.lua')):
+                    self.english_locale_path = os.path.join(self.resource_path, 'locales', 'en-us.lua')
+            else:
+                self.english_locale_path = None
+
         self._filter_imports()
 
     def __repr__(self):
@@ -26,6 +39,8 @@ class Manifest:
                 shared_scripts={self.shared_scripts}, 
                 client_scripts={self.client_scripts}, 
                 server_scripts={self.server_scripts},
+                locales={self.locales},
+                {SUCCESS if self.english_locale else FAILURE} english locale detected,
 
                 imports:
                 {SUCCESS if self.uses_ox_lib else FAILURE} ox_lib,
@@ -122,3 +137,8 @@ class Manifest:
             self.server_scripts.remove(import_)
 
         self.uncommon_imports = list(set(shared_imports + client_imports + server_imports))
+
+    def _get_locales(self) -> list[str]:
+        if os.path.exists(os.path.join(self.resource_path, 'locales')):
+            locales = os.listdir(os.path.join(self.resource_path, 'locales'))
+            return [locale.split('.')[0] for locale in locales]
