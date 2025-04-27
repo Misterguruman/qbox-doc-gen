@@ -9,7 +9,7 @@ class Manifest:
     def __init__(self, manifest_path):
         self.manifest_path = os.path.join(manifest_path, 'fxmanifest.lua')
         self.manifest_content = self._read_manifest()
-        self.resource_path = os.path.dirname(manifest_path)
+        self.resource_path = manifest_path
         self.resource = self.resource_path.split('\\')[-1]
         self.description = self._get_description()
         self.shared_scripts = self._get_shared_scripts()
@@ -18,13 +18,13 @@ class Manifest:
         self.locales = self._get_locales()
         self.english_locale = True if 'en' in self.locales or 'en-us' in self.locales else False
         
-        if self.english_locale:
+        if self.english_locale and self.locales:
             if 'en' in self.locales:
-                if os.path.exists(os.path.join(self.resource_path, 'locales', 'en.lua')):
-                    self.english_locale_path = os.path.join(self.resource_path, 'locales', 'en.lua')
+                if os.path.exists(os.path.join(self.resource_path, 'locales', 'en.json')):
+                    self.english_locale_path = os.path.join(self.resource_path, 'locales', 'en.json')
             elif 'en-us' in self.locales:
-                if os.path.exists(os.path.join(self.resource_path, 'locales', 'en-us.lua')):
-                    self.english_locale_path = os.path.join(self.resource_path, 'locales', 'en-us.lua')
+                if os.path.exists(os.path.join(self.resource_path, 'locales', 'en-us.json')):
+                    self.english_locale_path = os.path.join(self.resource_path, 'locales', 'en-us.json')
             else:
                 self.english_locale_path = None
 

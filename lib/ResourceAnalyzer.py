@@ -156,7 +156,7 @@ class Script:
         return result
     
     def _get_exports(self):
-        lua_src = pathlib.Path('server.lua').read_text()
+        lua_source = open(self.script_path, 'r').read()
 
         # ① grab all exports and all functions once
         export_re = re.compile(r'^[ \t]*exports\(\s*[\'"]([^\'"]+)[\'"]\s*,\s*(\w+)\s*\)', re.MULTILINE)
@@ -164,8 +164,8 @@ class Script:
         param_re  = re.compile(r'^[ \t]*---@param[ \t]+(\w+)[ \t]+([^\s]+)', re.MULTILINE)
         return_re = re.compile(r'^[ \t]*---@return[ \t]+([^\s]+)',           re.MULTILINE)
 
-        exports = [(m.start(), m.group(1), m.group(2)) for m in export_re.finditer(lua_src)]
-        funcs   = [(m.start(), m.group('name'), m.group('args'), m.group('ann')) for m in func_re.finditer(lua_src)]
+        exports = [(m.start(), m.group(1), m.group(2)) for m in export_re.finditer(lua_source)]
+        funcs   = [(m.start(), m.group('name'), m.group('args'), m.group('ann')) for m in func_re.finditer(lua_source)]
 
         results = []          # one dict per export
 
@@ -183,13 +183,15 @@ class Script:
 
             results.append(Export(export_name, arg_list, param_dict or None, ret_type))
 
+        return results
+
 
 class Resource: 
     def __init__(self, resource_path: str):
         self.resource_path = resource_path
         self.manifest = Manifest(resource_path)
         if self.manifest.english_locale and self.manifest.english_locale_path:
-            self.locale_data = json.load(open(self.manifest.english_locale_path, 'r'))
+            self.locale_data = json.load(open(self.manifest.english_locale_path, 'r', encoding='utf-8'))
 
         self.server_scripts = [Script(os.path.join(resource_path, '\\'.join([x for x in script.split('/')]))) for script in self.manifest.server_scripts]
         for script in self.server_scripts:
