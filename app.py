@@ -16,6 +16,8 @@ def validate_args():
 
     try:
         exists = os.path.exists(args.path)
+        if not exists:
+            raise OSError("Unable to find specified path, please check and try again.")
 
     except (OSError, ValueError) as e:
         print(f'Error checking path: {e}')
@@ -34,5 +36,7 @@ if __name__ == '__main__':
         args.path = args.path[:-1]
     resource = Resource(args.path)
     print(resource.manifest)
+
+    resource.export()
 
 

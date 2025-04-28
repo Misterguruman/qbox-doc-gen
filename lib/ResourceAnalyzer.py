@@ -2,6 +2,8 @@ from lib.ManifestReader import Manifest
 import os
 import re
 import json
+import shutil
+import itertools
 from textwrap import dedent
 
 class Event:
@@ -29,7 +31,6 @@ class Event:
         mdx += "---"
 
         return mdx
-        
 
 class Callback:
     def __init__(self, name: str, args: list[str], annotations: list[tuple[str, str]]):
@@ -86,10 +87,11 @@ class Export:
         return mdx
 
 class Command:
-    def __init__(self, name: str, help_text: str, params: list[dict[str, str]]):
+    def __init__(self, name: str, help_text: str, params: list[dict[str, str]], parent):
         self.name = name
         self.help_text = help_text
         self.params = params
+        self.script = parent
 
     def __repr__(self):
         return f"Command(name={self.name}, help_text={self.help_text}, params={self.params})"
@@ -116,14 +118,17 @@ class Script:
         self.exists = os.path.exists(script_path)
         self.events = []
         self.callbacks = []
-        self.commands = []
+        # self.commands = []
         self.exports = []
 
         if self.exists:
             self.events = self._get_events()
             self.callbacks = self._get_callbacks()
-            self.commands = self._get_commands()
+            # self.commands = self._get_commands()
             self.exports = self._get_exports()
+
+        else:
+            print(f"Unable to find script {script_path} in resource {resource_name}")
 
     def _get_events(self):
         lua_source = open(self.script_path, 'r').read()
@@ -264,17 +269,55 @@ class Resource:
             self.locale_data = json.load(open(self.manifest.english_locale_path, 'r', encoding='utf-8'))
 
         self.server_scripts = [Script(os.path.join(resource_path, '\\'.join([x for x in script.split('/')])), self.manifest.resource) for script in self.manifest.server_scripts]
-        for script in self.server_scripts:
-            print(script.script_path)
-            print(script.exists)
-            for event in script.events:
-                print(event.to_mdx())
+        self.client_scripts = [Script(os.path.join(resource_path, '\\'.join([x for x in script.split('/')])), self.manifest.resource) for script in self.manifest.client_scripts]
+        self.shared_scripts = [Script(os.path.join(resource_path, '\\'.join([x for x in script.split('/')])), self.manifest.resource) for script in self.manifest.shared_scripts]
 
-            for callback in script.callbacks:
-                print(callback.to_mdx())
+    def export(self):
+        export_directory = os.path.join(os.getcwd(), 'export', self.manifest.resource)
+        if os.path.exists(export_directory):
+            shutil.rmtree(export_directory, True)
+        
+        os.makedirs(export_directory)
+        
+        self._export_events(export_directory)
 
-            for command in script.commands:
-                print(command)
+    def _export_events(self, export_directory):
+        event_export_directory = os.path.join(export_directory, 'events')
+        server_events = itertools.chain.from_iterable([x.events for x in self.server_scripts])
+        client_events = itertools.chain.from_iterable([x.events for x in self.client_scripts])
+        shared_events = itertools.chain.from_iterable([x.events for x in self.shared_scripts])
 
-            for export in script.exports:
-                print(export.to_mdx())
+        if not any(server_events or client_events or shared_events):
+            print("No events found, exiting..")
+            return
+        
+        os.makedirs(event_export_directory)
+
+        self._write_to_file(os.path.join(event_export_directory, 'server.mdx'), server_events)
+        self._write_to_file(os.path.join(event_export_directory, 'client.mdx'), client_events)
+        self._write_to_file(os.path.join(event_export_directory, 'shared.mdx'), shared_events)
+
+    def _export_exports(self, export_directory):
+        event_export_directory = os.path.join(export_directory, 'exports')
+        server_exports = itertools.chain.from_iterable([x.exports for x in self.server_scripts])
+        client_exports = itertools.chain.from_iterable([x.exports for x in self.client_scripts])
+        shared_exports = itertools.chain.from_iterable([x.exports for x in self.shared_scripts])
+
+        if not any(server_exports or client_exports or shared_exports):
+            print("No events found, exiting..")
+            return
+        
+        os.makedirs(event_export_directory)
+
+        self._write_to_file(os.path.join(event_export_directory, 'server.mdx'), server_exports)
+        self._write_to_file(os.path.join(event_export_directory, 'client.mdx'), client_exports)
+        self._write_to_file(os.path.join(event_export_directory, 'shared.mdx'), shared_exports)
+
+
+        
+
+    def _write_to_file(file_path, content):
+        if content:
+            file_handle = open(file_path, 'w+')
+            for item in content:
+                file_handle.write(item.to_mdx())

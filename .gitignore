@@ -2,3 +2,4 @@
 fxmanifest*
 *.lua
 test/**
+export/**
