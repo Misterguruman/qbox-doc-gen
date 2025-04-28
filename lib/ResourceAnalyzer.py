@@ -2,6 +2,7 @@ from lib.ManifestReader import Manifest
 import os
 import re
 import json
+from textwrap import dedent
 
 class Event:
     def __init__(self, name: str, args: list[str], annotations: list[tuple[str, str]]):
@@ -11,6 +12,21 @@ class Event:
 
     def __repr__(self):
         return f"Event(name={self.name}, args={self.args}, annotations={self.annotations})"
+    
+    def to_mdx(self):
+        mdx = dedent(f"""
+        ### {self.name.split(':')[-1]}
+        
+        Triggered when a player.. #TODO: finish
+        ```lua
+        RegisterNetEvent('{self.name}', function({', '.join(self.args)}) end)
+        ```
+        """
+        )
+
+        for key, value in self.annotations:
+            mdx += f"- {key}: {value}"
+        
 
 class Callback:
     def __init__(self, name: str, args: list[str], annotations: list[tuple[str, str]]):
@@ -198,7 +214,7 @@ class Resource:
             print(script.script_path)
             print(script.exists)
             for event in script.events:
-                print(event)
+                print(event.to_mdx())
 
             for callback in script.callbacks:
                 print(callback)
