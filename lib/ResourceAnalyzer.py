@@ -14,7 +14,7 @@ class Event:
         return f"Event(name={self.name}, args={self.args}, annotations={self.annotations})"
     
     def to_mdx(self):
-        mdx = dedent(f"""
+        mdx = dedent(f"""\
         ### {self.name.split(':')[-1]}
         
         Triggered when a player.. #TODO: finish
@@ -25,7 +25,10 @@ class Event:
         )
 
         for key, value in self.annotations:
-            mdx += f"- {key}: {value}"
+            mdx += f"- {key}: {value}\n"
+        mdx += "---"
+
+        return mdx
         
 
 class Callback:
@@ -36,17 +39,52 @@ class Callback:
 
     def __repr__(self):
         return f"Callback(name={self.name}, args={self.args}, annotations={self.annotations})"
+    
+    def to_mdx(self):
+        mdx = dedent(f"""\
+        ### {self.name.split(':')[-1]}
+        
+        Triggered when a player.. #TODO: finish
+        ```lua
+        lib.callback.await('{self.name}', false, {', '.join(self.args)})
+        ```
+        """
+        )
+
+        for key, value in self.annotations:
+            mdx += f"- {key}: {value}\n"
+        mdx += "---"
+
+        return mdx
 
 class Export:
-    def __init__(self, name: str, args: list[str], arg_types: dict[str, str], return_type: str):
+    def __init__(self, name: str, args: list[str], arg_types: dict[str, str], return_type: str, resource_name: str):
         self.name = name
         self.args = args
         self.arg_types = arg_types
         self.return_type = return_type
+        self.resource_name = resource_name
 
     def __repr__(self):
         return f"Export(name={self.name}, args={self.args}, arg_types={self.arg_types}, return_type={self.return_type})"
     
+    def to_mdx(self):
+        mdx = dedent(f"""\
+        ### {self.name.split(':')[-1]}
+        
+        Triggered when a player.. #TODO: finish
+        ```lua
+        exports.{self.resource_name}:{self.name}({', '.join(self.args)})
+        ```
+        """
+        )
+
+        for key, value in self.arg_types.items():
+            mdx += f"- {key}: {value}\n"
+        mdx += "---"
+
+        return mdx
+
 class Command:
     def __init__(self, name: str, help_text: str, params: list[dict[str, str]]):
         self.name = name
@@ -55,9 +93,25 @@ class Command:
 
     def __repr__(self):
         return f"Command(name={self.name}, help_text={self.help_text}, params={self.params})"
+    
+    def to_mdx(self):
+        mdx = dedent(f"""\
+        ### {self.name}
+        ```lua
+        exports.{self.resource_name}:{self.name}({', '.join(self.args)})
+        ```
+        """
+        )
+
+        for key, value in self.arg_types.items():
+            mdx += f"- {key}: {value}\n"
+        mdx += "---"
+
+        return mdx
 
 class Script:
-    def __init__(self, script_path: str):
+    def __init__(self, script_path: str, resource_name: str):
+        self.resource_name = resource_name
         self.script_path = script_path
         self.exists = os.path.exists(script_path)
         self.events = []
@@ -197,7 +251,7 @@ class Script:
             ret_match  = return_re.search(ann_block)
             ret_type   = ret_match.group(1) if ret_match else None
 
-            results.append(Export(export_name, arg_list, param_dict or None, ret_type))
+            results.append(Export(export_name, arg_list, param_dict or None, ret_type, self.resource_name))
 
         return results
 
@@ -209,7 +263,7 @@ class Resource:
         if self.manifest.english_locale and self.manifest.english_locale_path:
             self.locale_data = json.load(open(self.manifest.english_locale_path, 'r', encoding='utf-8'))
 
-        self.server_scripts = [Script(os.path.join(resource_path, '\\'.join([x for x in script.split('/')]))) for script in self.manifest.server_scripts]
+        self.server_scripts = [Script(os.path.join(resource_path, '\\'.join([x for x in script.split('/')])), self.manifest.resource) for script in self.manifest.server_scripts]
         for script in self.server_scripts:
             print(script.script_path)
             print(script.exists)
@@ -217,10 +271,10 @@ class Resource:
                 print(event.to_mdx())
 
             for callback in script.callbacks:
-                print(callback)
+                print(callback.to_mdx())
 
             for command in script.commands:
                 print(command)
 
             for export in script.exports:
-                print(export)
+                print(export.to_mdx())

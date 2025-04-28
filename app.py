@@ -30,7 +30,8 @@ def validate_args():
 
 if __name__ == '__main__':
     validate_args()
-
+    if args.path.endswith('\\'):
+        args.path = args.path[:-1]
     resource = Resource(args.path)
     print(resource.manifest)
 
