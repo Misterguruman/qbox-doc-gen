@@ -260,13 +260,14 @@ class Script:
 
         return results
 
-
 class Resource: 
     def __init__(self, resource_path: str):
         self.resource_path = resource_path
         self.manifest = Manifest(resource_path)
+
         if self.manifest.english_locale and self.manifest.english_locale_path:
-            self.locale_data = json.load(open(self.manifest.english_locale_path, 'r', encoding='utf-8'))
+            with open(self.manifest.english_locale_path, encoding='utf-8') as fh:
+                self.locale_data = json.load(fh)
 
         self.server_scripts = [Script(os.path.join(resource_path, '\\'.join([x for x in script.split('/')])), self.manifest.resource) for script in self.manifest.server_scripts]
         self.client_scripts = [Script(os.path.join(resource_path, '\\'.join([x for x in script.split('/')])), self.manifest.resource) for script in self.manifest.client_scripts]
@@ -280,6 +281,8 @@ class Resource:
         os.makedirs(export_directory)
         
         self._export_events(export_directory)
+        self._export_exports(export_directory)
+        self._export_callbacks(export_directory)
 
     def _export_events(self, export_directory):
         event_export_directory = os.path.join(export_directory, 'events')
@@ -304,7 +307,7 @@ class Resource:
         shared_exports = itertools.chain.from_iterable([x.exports for x in self.shared_scripts])
 
         if not any(server_exports or client_exports or shared_exports):
-            print("No events found, exiting..")
+            print("No exports found, exiting..")
             return
         
         os.makedirs(event_export_directory)
@@ -313,10 +316,23 @@ class Resource:
         self._write_to_file(os.path.join(event_export_directory, 'client.mdx'), client_exports)
         self._write_to_file(os.path.join(event_export_directory, 'shared.mdx'), shared_exports)
 
+    def _export_callbacks(self, export_directory):
+        event_export_directory = os.path.join(export_directory, 'callbacks')
+        server_callbacks = itertools.chain.from_iterable([x.callbacks for x in self.server_scripts])
+        client_callbacks = itertools.chain.from_iterable([x.callbacks for x in self.client_scripts])
+        shared_callbacks = itertools.chain.from_iterable([x.callbacks for x in self.shared_scripts])
 
+        if not any(server_callbacks or client_callbacks or shared_callbacks):
+            print("No callbacks found, exiting..")
+            return
         
+        os.makedirs(event_export_directory)
 
-    def _write_to_file(file_path, content):
+        self._write_to_file(os.path.join(event_export_directory, 'server.mdx'), server_callbacks)
+        self._write_to_file(os.path.join(event_export_directory, 'client.mdx'), client_callbacks)
+        self._write_to_file(os.path.join(event_export_directory, 'shared.mdx'), shared_callbacks)
+
+    def _write_to_file(self, file_path, content):
         if content:
             file_handle = open(file_path, 'w+')
             for item in content:
