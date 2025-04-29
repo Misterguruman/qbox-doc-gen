@@ -1,9 +1,16 @@
 import re
 import os
+import glob
 from textwrap import dedent
 
 SUCCESS = '\u2705'  # Check mark
 FAILURE = '\u274C'  # Cross mark
+GLOB_CHARS = {'*', '?', '[', ']'}
+
+
+def _is_glob(path: str) -> bool:
+    """True if the manifest path contains any glob metacharacter."""
+    return any(c in path for c in GLOB_CHARS)
 
 class Manifest:
     def __init__(self, manifest_path):
@@ -16,7 +23,10 @@ class Manifest:
         self.client_scripts = self._get_client_scripts()
         self.server_scripts = self._get_server_scripts()
         self.locales = self._get_locales()
-        self.english_locale = True if 'en' in self.locales or 'en-us' in self.locales else False
+        if self.locales:
+            self.english_locale = True if 'en' in self.locales or 'en-us' in self.locales else False
+        else:
+            self.english_locale = False
         
         if self.english_locale and self.locales:
             if 'en' in self.locales:
@@ -29,6 +39,9 @@ class Manifest:
                 self.english_locale_path = None
 
         self._filter_imports()
+        self.shared_scripts = self._expand(self.shared_scripts)
+        self.client_scripts = self._expand(self.client_scripts)
+        self.server_scripts = self._expand(self.server_scripts)
 
     def __repr__(self):
         return dedent(f"""\
@@ -142,3 +155,29 @@ class Manifest:
         if os.path.exists(os.path.join(self.resource_path, 'locales')):
             locales = os.listdir(os.path.join(self.resource_path, 'locales'))
             return [locale.split('.')[0] for locale in locales]
+
+    def _expand(self, manifest_paths: list[str]) -> list[str]:
+        """
+        Expand globs relative to *self.resource_path*, return unique forward-slash
+        paths in manifest order.
+        """
+        root_escaped = glob.escape(self.resource_path)       # ← NEW
+        seen, resolved = set(), []
+
+        for entry in manifest_paths:
+            if not _is_glob(entry):
+                if entry not in seen:
+                    resolved.append(entry); seen.add(entry)
+                continue
+
+            # build an OS-native pattern, but the *root* part is now escaped
+            pattern = os.path.join(root_escaped, *entry.split('/'))
+
+            # recursive=True lets ** work
+            for hit in sorted(glob.glob(pattern, recursive=True)):
+                rel = os.path.relpath(hit, self.resource_path).replace(os.sep, '/')
+                if rel not in seen:
+                    resolved.append(rel); seen.add(rel)
+
+        return resolved
+
